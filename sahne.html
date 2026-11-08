@@ -1843,6 +1843,7 @@ function slimeSekil(S, t, eller) {
   return pts;
 }
 function jelYol(g,S,t,es) { const p=slimeSekil(S,t,es);g.beginPath();p.forEach(([x,y],i)=>i?g.lineTo(x,y):g.moveTo(x,y));g.closePath(); }
+const JEL_OLCEK = 0.5;   // slime gölgelendiricisi yarı çözünürlükte çizilir, drawImage büyütür (yumuşak şekil, fark görünmez)
 const jelGPU = lazy(() => {
   const c=document.createElement('canvas'), gl=c.getContext('webgl',{alpha:true,premultipliedAlpha:false,preserveDrawingBuffer:true,antialias:false});
   if(!gl) throw Error('Slime material requires WebGL');
@@ -1971,7 +1972,8 @@ function slime(g,S,t,es,durum){
 
   g.save();g.translate(W*.008,H*.011);g.filter=`blur(${W*.013}px)`;g.fillStyle=rgbaRenk(SLIME_PALET.koyu,0.42);jelYol(g,S,t,es);g.fill();g.restore();
   const {c,gl,u}=jelGPU();
-  if(c.width!==W||c.height!==Math.ceil(H*.33)){c.width=W;c.height=Math.ceil(H*.33);gl.viewport(0,0,c.width,c.height);}
+  const jw=Math.ceil(W*JEL_OLCEK),jh=Math.ceil(H*.33*JEL_OLCEK);
+  if(c.width!==jw||c.height!==jh){c.width=jw;c.height=jh;gl.viewport(0,0,jw,jh);}
   gl.uniform2f(u.size,c.width,c.height);gl.uniform1f(u.aspect,H/W);gl.uniform1f(u.time,jelSaat(t));gl.uniform1f(u.motion,jelHareket(t));gl.uniform1f(u.burst,acilis(t).impact);gl.uniform1f(u.wet,durum.islak);
   gl.uniform1f(u.alphaScale,SLIME_PALET.alphaScale);gl.uniform3fv(u.deepColor,SLIME_PALET.deepVec);gl.uniform3fv(u.thinColor,SLIME_PALET.thinVec);
   const st=uzatma(t);gl.uniform1f(u.stretch,st.lift);gl.uniform1f(u.impact,st.impact);
@@ -5320,13 +5322,14 @@ function canliCiz(now,dt) {
     const L=Y.kare(now,dt);
     const target=bufOut.g;target.setTransform(1,0,0,1,0,0);target.globalAlpha=1;target.filter='none';
     target.save();sYayin(target,0,L.t,S);target.restore();
-    g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;g.filter=[LOOK.grade,TONE&&'url(#tone)'].filter(Boolean).join(' ')||'none';
-    g.drawImage(bufOut.c,0,0);g.filter='none';vignette(g,S,LOOK.vignette);
+    g.setTransform(1,0,0,1,0,0);g.globalAlpha=1;g.filter='none';   // renk ayarı + ton eğrisi tuvalin CSS süzgecinde (canvas.style.filter), her karede tuval içinde değil
+    g.drawImage(bufOut.c,0,0);vignette(g,S,LOOK.vignette);
     canliArayuz(L,now);
     if(Y.current&&L.age>=Y.current.duration){Y.current=null;Y.nextIdle=now+20+Math.random()*25;}
   } finally {CANLI_KARE=null;}
 }
 if(!q.get('capture')) {
+  canvas.style.filter=[LOOK.grade,TONE&&'url(#tone)'].filter(Boolean).join(' ')||'none';   // yalnız canlı modda; capture modu süzgeci kendi içinde uygular
   const button=document.getElementById('baslat'),obs=q.get('obs')==='1'||q.get('onizleme')==='1';button.hidden=obs;
   let ready=false,requested=obs;
   const start=()=>{
